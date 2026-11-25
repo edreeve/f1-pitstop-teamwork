@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>The Pinnacle of Teamwork — F1 to Medical Affairs Governance</title>
   <style>
     :root {
@@ -30,14 +30,33 @@
       font-family: var(--font-sans); -webkit-font-smoothing: antialiased; user-select: none;
     }
     #viewport {
-      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      position: fixed; inset: 0; width: 100vw; height: 100dvh; overflow: hidden;
       background: radial-gradient(circle at 50% 45%, #0d1629 0%, #04070f 75%);
+      touch-action: manipulation;
     }
     #stage {
-      width: 1280px; height: 720px; position: relative; background: var(--bg-stage);
+      position: absolute; top: 50%; left: 50%;
+      width: 1280px; height: 720px; min-width: 1280px; min-height: 720px;
+      background: var(--bg-stage);
       border-radius: 6px; overflow: hidden;
       box-shadow: 0 32px 90px rgba(0,0,0,0.72), 0 0 0 1px rgba(255,255,255,0.08);
       transform-origin: center center;
+      transform: translate(-50%, -50%) scale(1);
+      will-change: transform;
+    }
+    .mobile-hint {
+      display: none;
+      position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      padding: 8px 16px; border-radius: 999px;
+      border: 1px solid rgba(148,179,224,0.28);
+      background: rgba(10, 17, 34, 0.9);
+      font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);
+      letter-spacing: 0.04em; white-space: nowrap; z-index: 45;
+      pointer-events: none;
+    }
+    @media (max-width: 900px) and (orientation: portrait) {
+      .mobile-hint { display: block; }
     }
     #stage::before {
       content: ""; position: absolute; inset: 0;
@@ -1154,6 +1173,7 @@
       </div>
       <div class="progress-rail"><div class="progress-fill" id="progress-fill"></div></div>
     </main>
+    <div class="mobile-hint">Tap or swipe to advance · Rotate phone for larger view</div>
   </div>
 
   <aside id="notes-drawer" aria-label="Speaker notes">
@@ -1205,12 +1225,33 @@
       let countAnimated = { 42: false, 49: false };
 
       function scaleStage() {
-        const scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
-        stage.style.transform = `scale(${scale})`;
+        const vv = window.visualViewport;
+        const vw = vv ? vv.width : window.innerWidth;
+        const vh = vv ? vv.height : window.innerHeight;
+        const scale = Math.min(vw / 1280, vh / 720);
+        stage.style.transform = `translate(-50%, -50%) scale(${scale})`;
       }
       window.addEventListener('resize', scaleStage);
+      window.addEventListener('orientationchange', () => { scaleStage(); setTimeout(scaleStage, 250); });
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', scaleStage);
       if (typeof ResizeObserver !== 'undefined') new ResizeObserver(scaleStage).observe(document.documentElement);
       scaleStage();
+
+      /* Touch swipe support for mobile/tablet viewing */
+      let touchStartX = 0, touchStartY = 0;
+      document.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+      document.addEventListener('touchend', (e) => {
+        if (e.changedTouches.length !== 1 || overviewModal.classList.contains('open')) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+          if (dx < 0) next(); else prev();
+        }
+      }, { passive: true });
 
       const carGroup = document.getElementById('f1-car-group');
       const stopwatchEl = document.getElementById('pit-stopwatch');
